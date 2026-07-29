@@ -1,0 +1,75 @@
+Tier 1 — Descritivo (baseline)
+
+1.1 — "Qual é a nossa receita recorrente hoje e como ela se divide por plano?" (Ana, CFO — precisa do número base antes de julgar qualquer variação)
+
+Métrica: MRR ativo = soma de mrr_impact de todos os eventos cujo efeito ainda está "vigente" na data de corte (ou seja, não houve cancellation/downgrade posterior no mesmo usuário). Edge case: usuários com múltiplos upgrade/downgrade — usar o evento mais recente por usuário, não somar todos.
+Técnica: reconstrução de estado via window function (ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY event_date DESC)).
+Output: tabela + gráfico de barras por plano.
+Armadilha: somar mrr_impact bruto de todos os eventos dá um número inflado e errado — isso conta cancelamentos e reativações como receita adicional.
+
+1.2 — "Qual a taxa de conversão trial → pago?" (Fernanda, Growth — baseline pra medir eficiência de aquisição)
+
+Métrica: conversões = usuários com trial_start seguido de subscription_start (sem trial_churn no meio) / total de trial_start.
+Técnica: self-join simples ou window function pra parear eventos do mesmo usuário.
+Output: número único + breakdown por canal.
+Armadilha: contar subscription_start isolado sem checar se veio de fato depois de um trial do mesmo usuário.
+
+1.3 — "Como o volume de signups evoluiu por canal ao longo do tempo?" (Fernanda — visão de tendência simples)
+
+Métrica: contagem de signups por mês/canal.
+Técnica: agregação temporal simples (GROUP BY mês, canal).
+Output: gráfico de linha.
+Armadilha: nenhuma real — é a única pergunta "de baseline" que aceita GROUP BY puro.
+
+Tier 2 — Diagnóstico / Segmentação
+
+2.1 — "Algum canal de aquisição converte melhor e retém mais que os outros?" (Fernanda — decide se corta paid_social/influencer)
+
+Métrica: conversão trial→pago E churn rate aos 90 dias, por canal.
+Técnica: segmentação cruzada + comparação de proporções.
+Output: tabela comparativa por canal.
+Armadilha: referral tem churn mais baixo, mas isso pode ser autosseleção (quem chega por indicação de amigo já sabe que vai gostar do conteúdo) e não um efeito causal do canal em si — importante não recomendar "aumentar investimento em referral" sem qualificar essa hipótese.
+
+2.2 — "O tipo de dispositivo influencia a retenção?" (Rafael, Product — decide onde investir em UX)
+
+Métrica: churn rate por primary_device, controlando por plano (Family tende a reter mais independente do device).
+Técnica: segmentação com controle de confounder (estratificar por plano antes de comparar devices).
+Output: tabela estratificada.
+Armadilha: comparar churn por device sem estratificar por plano pode atribuir a device um efeito que na verdade é composição de planos (ex: usuários Family usam mais SmartTV).
+
+2.3 — "Por que os usuários cancelam, e isso varia por plano?" (Ana + Rafael — decide se o problema é preço ou produto)
+
+Métrica: distribuição de cancel_reason por plan.
+Técnica: tabulação cruzada (crosstab) + teste de associação (qui-quadrado) pra saber se a distribuição de motivos difere de forma estatisticamente significativa entre planos.
+Output: tabela/heatmap + p-valor.
+Armadilha: olhar só a contagem absoluta sem normalizar pelo tamanho de cada segmento de plano.
+
+2.4 — "Engajamento baixo é um sinal de alerta de churn?" (Rafael + Ana — decide se vale montar alerta de "usuário em risco")
+
+Métrica: watch_minutes médio e completed_content rate nos 30 dias anteriores ao evento, comparando usuários que cancelaram vs. que não cancelaram.
+Técnica: join temporal entre usage_events e subscription_events (janela de 30 dias antes do evento de cancelamento — self-join com filtro de data).
+Output: comparação de distribuições (boxplot) + diferença de médias com teste de significância.
+Armadilha: causalidade reversa — baixo engajamento pode ser efeito, não causa, de uma decisão de cancelar já tomada (o usuário para de assistir porque já decidiu sair, não sai porque assiste pouco).
+
+Tier 3 — Preditivo / Causal / Otimização
+
+3.1 — "Qual é a nossa Net Revenue Retention (NRR) trimestral, por cohort de signup?" (Ana, CFO — é o número que vai pro board)
+
+Métrica: NRR = (MRR inicial do cohort + expansão via upgrade − contração via downgrade − churn) / MRR inicial do cohort, por trimestre.
+Técnica: reconstrução de MRR mês a mês por usuário via window functions (estado vigente por período) + agregação por cohort de signup + cálculo de expansão/contração isolando upgrades e downgrades do mesmo usuário ao longo do tempo. Este é o SQL multi-step mais pesado do projeto (self-join + window function + cohorting).
+Output: gráfico de linha de NRR por cohort trimestral.
+Armadilha: tratar reativação como "novo cliente" em vez de contração revertida infla artificialmente a métrica.
+
+3.2 — "O canal 'referral' realmente causa menor churn, ou é só quem se autosseleciona?" (Fernanda — decisão de realocar orçamento)
+
+Métrica: churn rate ajustado, controlando por had_trial, plan e country como possíveis confounders.
+Técnica: regressão logística de churn com canal + covariáveis de controle, avaliando se o coeficiente de "referral" permanece significativo após controle (ou estimador de propensity score / matching como quasi-experimento).
+Output: modelo com coeficientes + intervalo de confiança.
+Armadilha (a mais perigosa do projeto): recomendar "invista mais em referral" baseado só na correlação bruta do Tier 2, sem controlar confounders — isso é exatamente o tipo de erro que a Ana vai atacar na reunião.
+
+3.3 — "Conseguimos prever, com antecedência, quais usuários ativos têm alto risco de cancelar nos próximos 30 dias?" (Rafael + Fernanda — decide se vale construir um sistema de retenção proativa)
+
+Métrica: modelo binário de propensão a churn, usando features de usage_events (frequência, watch_minutes, completed_content) e subscription_events (tempo de vida, plano, histórico de upgrade/downgrade).
+Técnica: classificação (regressão logística ou árvore) com avaliação real — AUC-ROC e precision/recall (não acurácia simples, dado que a classe "cancela" é minoritária).
+Output: modelo + curva ROC + lista de features mais importantes.
+Armadilha: usar acurácia como métrica de avaliação em dataset desbalanceado (a maioria não cancela) — dá número enganosamente alto e não serve pra ação.
