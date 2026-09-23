@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LumenMais — Dashboard de Assinaturas</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --success-text:   #006300;
+
+    --series-1: #2a78d6; /* blue */
+    --series-2: #eb6834; /* orange */
+    --series-3: #1baf7a; /* aqua */
+    --series-4: #eda100; /* yellow */
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page-plane:     #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --success-text:   #0ca30c;
+
+      --series-1: #3987e5;
+      --series-2: #d95926;
+      --series-3: #199e70;
+      --series-4: #c98500;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page-plane:     #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --success-text:   #0ca30c;
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--page-plane);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  body { padding: 24px 16px 64px; }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+
+  header { margin-bottom: 24px; }
+  h1 { font-size: 22px; font-weight: 650; margin: 0 0 4px; }
+  header p { color: var(--text-secondary); margin: 0; font-size: 14px; }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .stat-tile {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .stat-tile .label { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+  .stat-tile .value { font-size: 26px; font-weight: 650; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 760px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px 14px;
+    position: relative;
+    grid-column: span 1;
+  }
+  .card.wide { grid-column: 1 / -1; }
+  .card h2 { font-size: 15px; font-weight: 650; margin: 0 0 2px; }
+  .card .sub { font-size: 12.5px; color: var(--text-secondary); margin: 0 0 14px; }
+  .card .note { font-size: 12px; color: var(--text-muted); margin-top: 10px; line-height: 1.5; }
+
+  svg { display: block; overflow: visible; }
+  .bar { transition: opacity .1s; cursor: pointer; }
+  .bar:hover { opacity: 0.82; }
+  .axis-label { fill: var(--text-muted); font-size: 11px; }
+  .value-label { fill: var(--text-primary); font-size: 11.5px; font-weight: 600; }
+  .grid-line { stroke: var(--gridline); stroke-width: 1; }
+  .baseline { stroke: var(--baseline); stroke-width: 1; }
+  .line-path { fill: none; stroke: var(--series-1); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .area-path { fill: var(--series-1); opacity: 0.10; }
+  .dot { fill: var(--series-1); stroke: var(--surface-1); stroke-width: 2; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  .tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: var(--text-primary);
+    color: var(--surface-1);
+    font-size: 12px;
+    padding: 6px 9px;
+    border-radius: 6px;
+    line-height: 1.45;
+    opacity: 0;
+    transform: translate(-50%, -100%);
+    transition: opacity .08s;
+    z-index: 50;
+    white-space: nowrap;
+  }
+  .tooltip.show { opacity: 0.96; }
+
+  footer {
+    margin-top: 32px;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+  }
+  footer a { color: var(--text-secondary); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>LumenMais — Dashboard de Assinaturas</h1>
+    <p>Análise em SQL de MRR, conversão trial→pago, churn e engajamento · <span id="genDate"></span></p>
+  </header>
+
+  <div class="stat-row" id="statRow"></div>
+
+  <div class="grid">
+
+    <div class="card">
+      <h2>MRR ativo por plano</h2>
+      <p class="sub">Estado vigente de cada assinante (exclui cancelados)</p>
+      <div id="chartMrr"></div>
+    </div>
+
+    <div class="card">
+      <h2>Conversão trial → pago por canal</h2>
+      <p class="sub">% de trials que viraram assinatura paga</p>
+      <div id="chartConversion"></div>
+    </div>
+
+    <div class="card wide">
+      <h2>Signups por mês</h2>
+      <p class="sub">Volume de novos cadastros ao longo do tempo</p>
+      <div id="chartSignups"></div>
+    </div>
+
+    <div class="card">
+      <h2>Motivos de cancelamento</h2>
+      <p class="sub">Total de cancelamentos por motivo declarado</p>
+      <div id="chartCancelReasons"></div>
+    </div>
+
+    <div class="card">
+      <h2>Engajamento: cancelados vs. ativos</h2>
+      <p class="sub">Média nos 30 dias antes do evento de referência</p>
+      <div id="chartEngagement"></div>
+      <p class="note">Os números são quase idênticos entre os dois grupos — baixo engajamento não é, sozinho, um bom preditor de cancelamento aqui. Cuidado com causalidade reversa: quem já decidiu sair pode reduzir o uso como <em>efeito</em>, não causa.</p>
+    </div>
+
+    <div class="card wide">
+      <h2>Churn por dispositivo, por plano</h2>
+      <p class="sub">% de assinantes inativos, dispositivo principal × plano</p>
+      <div id="legendDevice" class="legend"></div>
+      <div id="chartDevice"></div>
+      <p class="note">Comparar churn por dispositivo sem estratificar por plano atribuiria a device um efeito que na verdade é composição de planos — por isso o corte aqui é sempre por plano.</p>
+    </div>
+
+  </div>
+
+  <footer>
+    Gerado a partir de <code>data/*.csv</code> e das consultas em <code>sql/02_analises.sql</code> e <code>sql/03_views.sql</code> ·
+    <a href="README.md">projeto_lumenmais</a>
+  </footer>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const DATA = {"generated_at": "2026-09-23", "total_mrr": 9658.44, "total_active_subscribers": 556, "total_users": 1400, "mrr_by_plan": [{"plan": "Standard", "active_subscribers": 198, "mrr": 3166.02}, {"plan": "Premium", "active_subscribers": 126, "mrr": 2770.74}, {"plan": "Family", "active_subscribers": 78, "mrr": 2183.22}, {"plan": "Basic", "active_subscribers": 154, "mrr": 1538.46}], "conversion_by_channel": [{"acquisition_channel": "email_campaign", "total_trials": 104, "converted": 61, "conversion_rate_pct": 58.7}, {"acquisition_channel": "affiliate", "total_trials": 58, "converted": 34, "conversion_rate_pct": 58.6}, {"acquisition_channel": "direct", "total_trials": 109, "converted": 63, "conversion_rate_pct": 57.8}, {"acquisition_channel": "paid_social", "total_trials": 183, "converted": 103, "conversion_rate_pct": 56.3}, {"acquisition_channel": "influencer", "total_trials": 93, "converted": 49, "conversion_rate_pct": 52.7}, {"acquisition_channel": "referral", "total_trials": 141, "converted": 74, "conversion_rate_pct": 52.5}, {"acquisition_channel": "organic_search", "total_trials": 198, "converted": 103, "conversion_rate_pct": 52.0}], "engagement": {"cancelled": {"avg_watch_minutes": 43.6, "completion_rate": 0.595}, "active": {"avg_watch_minutes": 45.2, "completion_rate": 0.609}}, "signups_by_month": [{"signup_month": "2024-01", "signups": 62}, {"signup_month": "2024-02", "signups": 44}, {"signup_month": "2024-03", "signups": 54}, {"signup_month": "2024-04", "signups": 50}, {"signup_month": "2024-05", "signups": 41}, {"signup_month": "2024-06", "signups": 38}, {"signup_month": "2024-07", "signups": 51}, {"signup_month": "2024-08", "signups": 48}, {"signup_month": "2024-09", "signups": 41}, {"signup_month": "2024-10", "signups": 36}, {"signup_month": "2024-11", "signups": 43}, {"signup_month": "2024-12", "signups": 31}, {"signup_month": "2025-01", "signups": 48}, {"signup_month": "2025-02", "signups": 43}, {"signup_month": "2025-03", "signups": 56}, {"signup_month": "2025-04", "signups": 48}, {"signup_month": "2025-05", "signups": 52}, {"signup_month": "2025-06", "signups": 45}, {"signup_month": "2025-07", "signups": 54}, {"signup_month": "2025-08", "signups": 47}, {"signup_month": "2025-09", "signups": 45}, {"signup_month": "2025-10", "signups": 51}, {"signup_month": "2025-11", "signups": 51}, {"signup_month": "2025-12", "signups": 55}, {"signup_month": "2026-01", "signups": 46}, {"signup_month": "2026-02", "signups": 34}, {"signup_month": "2026-03", "signups": 55}, {"signup_month": "2026-04", "signups": 45}, {"signup_month": "2026-05", "signups": 51}, {"signup_month": "2026-06", "signups": 35}], "cancel_reasons_by_plan": [{"plan": "Basic", "cancel_reason": "content_dissatisfaction", "count": 23}, {"plan": "Basic", "cancel_reason": "found_alternative", "count": 25}, {"plan": "Basic", "cancel_reason": "moved_competitor", "count": 11}, {"plan": "Basic", "cancel_reason": "not_using", "count": 30}, {"plan": "Basic", "cancel_reason": "price", "count": 55}, {"plan": "Basic", "cancel_reason": "technical_issues", "count": 9}, {"plan": "Family", "cancel_reason": "content_dissatisfaction", "count": 12}, {"plan": "Family", "cancel_reason": "found_alternative", "count": 4}, {"plan": "Family", "cancel_reason": "moved_competitor", "count": 1}, {"plan": "Family", "cancel_reason": "not_using", "count": 8}, {"plan": "Family", "cancel_reason": "price", "count": 16}, {"plan": "Family", "cancel_reason": "technical_issues", "count": 4}, {"plan": "Premium", "cancel_reason": "content_dissatisfaction", "count": 27}, {"plan": "Premium", "cancel_reason": "found_alternative", "count": 18}, {"plan": "Premium", "cancel_reason": "moved_competitor", "count": 7}, {"plan": "Premium", "cancel_reason": "not_using", "count": 33}, {"plan": "Premium", "cancel_reason": "price", "count": 47}, {"plan": "Premium", "cancel_reason": "technical_issues", "count": 15}, {"plan": "Standard", "cancel_reason": "content_dissatisfaction", "count": 38}, {"plan": "Standard", "cancel_reason": "found_alternative", "count": 33}, {"plan": "Standard", "cancel_reason": "moved_competitor", "count": 6}, {"plan": "Standard", "cancel_reason": "not_using", "count": 30}, {"plan": "Standard", "cancel_reason": "price", "count": 47}, {"plan": "Standard", "cancel_reason": "technical_issues", "count": 15}], "cancel_reasons_total": [{"cancel_reason": "price", "count": 165}, {"cancel_reason": "not_using", "count": 101}, {"cancel_reason": "content_dissatisfaction", "count": 100}, {"cancel_reason": "found_alternative", "count": 80}, {"cancel_reason": "technical_issues", "count": 43}, {"cancel_reason": "moved_competitor", "count": 25}], "device_churn": [{"plan": "Basic", "primary_device": "Android", "total": 74, "active": 39, "churn_rate_pct": 47.3}, {"plan": "Basic", "primary_device": "Roku", "total": 55, "active": 27, "churn_rate_pct": 50.9}, {"plan": "Basic", "primary_device": "SmartTV", "total": 55, "active": 34, "churn_rate_pct": 38.2}, {"plan": "Basic", "primary_device": "Web", "total": 42, "active": 26, "churn_rate_pct": 38.1}, {"plan": "Basic", "primary_device": "iOS", "total": 55, "active": 28, "churn_rate_pct": 49.1}, {"plan": "Family", "primary_device": "Android", "total": 21, "active": 12, "churn_rate_pct": 42.9}, {"plan": "Family", "primary_device": "Roku", "total": 31, "active": 20, "churn_rate_pct": 35.5}, {"plan": "Family", "primary_device": "SmartTV", "total": 23, "active": 17, "churn_rate_pct": 26.1}, {"plan": "Family", "primary_device": "Web", "total": 21, "active": 16, "churn_rate_pct": 23.8}, {"plan": "Family", "primary_device": "iOS", "total": 20, "active": 13, "churn_rate_pct": 35.0}, {"plan": "Premium", "primary_device": "Android", "total": 43, "active": 20, "churn_rate_pct": 53.5}, {"plan": "Premium", "primary_device": "Roku", "total": 46, "active": 21, "churn_rate_pct": 54.3}, {"plan": "Premium", "primary_device": "SmartTV", "total": 54, "active": 27, "churn_rate_pct": 50.0}, {"plan": "Premium", "primary_device": "Web", "total": 54, "active": 35, "churn_rate_pct": 35.2}, {"plan": "Premium", "primary_device": "iOS", "total": 51, "active": 23, "churn_rate_pct": 54.9}, {"plan": "Standard", "primary_device": "Android", "total": 66, "active": 36, "churn_rate_pct": 45.5}, {"plan": "Standard", "primary_device": "Roku", "total": 78, "active": 46, "churn_rate_pct": 41.0}, {"plan": "Standard", "primary_device": "SmartTV", "total": 75, "active": 46, "churn_rate_pct": 38.7}, {"plan": "Standard", "primary_device": "Web", "total": 65, "active": 36, "churn_rate_pct": 44.6}, {"plan": "Standard", "primary_device": "iOS", "total": 63, "active": 34, "churn_rate_pct": 46.0}]};
