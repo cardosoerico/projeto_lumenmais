@@ -16,6 +16,7 @@ projeto_lumenmais/
 │   ├── 01_schema.sql             # Criação das tabelas
 │   ├── 02_analises.sql           # Consultas de MRR, conversão trial→pago e engajamento
 │   └── 03_views.sql              # Views prontas para consumo por dashboard/BI
+├── dashboard.html                # Dashboard interativo com os principais indicadores
 └── README.md
 ```
 
@@ -34,6 +35,10 @@ As perguntas completas, com métrica, técnica e armadilha de análise para cada
 - **Engajamento pré-cancelamento** — comparação de minutos assistidos e taxa de conclusão entre quem cancelou e quem permanece ativo, nos 30 dias antes do evento.
 
 `sql/03_views.sql` consolida essas reconstruções em três views (`vw_usage_summary`, `vw_subscriber_current_state`, `vw_dashboard_master`) prontas para alimentar um dashboard.
+
+## Visualizações
+
+[`dashboard.html`](dashboard.html) é um dashboard interativo (HTML/CSS/JS puro, sem dependências) com os principais indicadores do projeto: MRR ativo por plano, conversão trial→pago por canal, evolução de signups, motivos de cancelamento, comparação de engajamento entre cancelados e ativos, e churn por dispositivo estratificado por plano. Como o GitHub não renderiza HTML diretamente, baixe o arquivo e abra no navegador para visualizar (ou sirva a pasta com GitHub Pages).
 
 ## Como rodar
 
